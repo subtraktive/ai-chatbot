@@ -7,6 +7,7 @@ import {
 } from 'ai';
 
 export const DEFAULT_CHAT_MODEL: string = 'chat-model-small';
+export const DEFAULT_IMAGE_MODEL: string = 'small-model';
 
 export const myProvider = customProvider({
   languageModels: {

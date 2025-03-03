@@ -63,7 +63,7 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
-
+  console.log("MESSAGES ==================", messages)
   return (
     <>
       <div className="flex flex-col min-w-0 h-dvh bg-background">

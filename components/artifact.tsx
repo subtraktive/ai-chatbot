@@ -101,7 +101,7 @@ function PureArtifact({
   const {
     data: documents,
     isLoading: isDocumentsFetching,
-    mutate: mutateDocuments,
+    mutate: mutateDocuments, 
   } = useSWR<Array<Document>>(
     artifact.documentId !== 'init' && artifact.status !== 'streaming'
       ? `/api/document?id=${artifact.documentId}`

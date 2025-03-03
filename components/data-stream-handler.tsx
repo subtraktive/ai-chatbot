@@ -28,7 +28,7 @@ export function DataStreamHandler({ id }: { id: string }) {
 
   useEffect(() => {
     if (!dataStream?.length) return;
-
+    console.log('dataStream ====================', dataStream);
     const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
     lastProcessedIndex.current = dataStream.length - 1;
 

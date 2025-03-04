@@ -4,6 +4,7 @@ import type { ChatRequestOptions, Message } from 'ai';
 import cx from 'classnames';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useMemo, useState } from 'react';
+import Image from 'next/image';
 
 import type { Vote } from '@/lib/db/schema';
 
@@ -166,6 +167,17 @@ const PurePreviewMessage = ({
                             result={result}
                             isReadonly={isReadonly}
                           />
+                        ) : toolName == "generateImage" ? (
+                          <div>
+                            <Image
+                                key={toolInvocation.toolCallId}
+                                src={`data:image/png;base64,${toolInvocation.result.image}`}
+                                alt={toolInvocation.result.prompt}
+                                height={256}
+                                width={256}
+                              />
+                              <div>Loaded this image in ${toolInvocation.result.time}</div>
+                            </div>
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
@@ -195,7 +207,10 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
-                      ) : null}
+                      ) : toolName == "generateImage" ? (
+                        <div key={toolInvocation.toolCallId} className="animate-pulse">
+                        "Generating image..."
+                      </div>) : null}
                     </div>
                   );
                 })}

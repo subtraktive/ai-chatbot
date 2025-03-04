@@ -3,7 +3,10 @@ import {
   createDataStreamResponse,
   smoothStream,
   streamText,
+  tool,
+  experimental_generateImage
 } from 'ai';
+import { z } from 'zod';
 
 import { auth } from '@/app/(auth)/auth';
 import { myProvider } from '@/lib/ai/models';
@@ -59,12 +62,23 @@ export async function POST(request: Request) {
     messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
   });
 
+  const formattedMessages = messages.map(m => {
+    if (m.role === 'assistant' && m.toolInvocations) {
+      m.toolInvocations.forEach(ti => {
+        if (ti.toolName === 'generateImage' && ti.state === 'result') {
+          ti.result.image = `redacted-for-length`;
+        }
+      });
+    }
+    return m;
+  });
+
   return createDataStreamResponse({
     execute: (dataStream) => {
       const result = streamText({
         model: myProvider.languageModel(selectedChatModel),
         system: systemPrompt({ selectedChatModel }),
-        messages,
+        messages: formattedMessages,
         maxSteps: 5,
         experimental_activeTools:
           selectedChatModel === 'chat-model-reasoning'
@@ -74,6 +88,7 @@ export async function POST(request: Request) {
                 'createDocument',
                 'updateDocument',
                 'requestSuggestions',
+                'generateImage'
               ],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
@@ -84,6 +99,25 @@ export async function POST(request: Request) {
           requestSuggestions: requestSuggestions({
             session,
             dataStream,
+          }),
+          generateImage: tool({
+            description: 'Generate an image',
+            parameters: z.object({
+              prompt: z.string().describe('The prompt to generate the image from'),
+            }),
+            execute: async ({ prompt }) => {
+              console.log("IMAGE EXECUTE ==============")
+              let startTime = performance.now();
+              const { image } = await experimental_generateImage({
+                model: myProvider.imageModel('small-model'),
+                prompt,
+                size: '256x256',
+              });
+              const endTime = performance.now();
+              let timeToGenerate = endTime - startTime
+              // in production, save this image to blob storage and return a URL
+              return { image: image.base64, prompt, time: timeToGenerate, model: 'small-model' };
+            },
           }),
         },
         onFinish: async ({ response, reasoning }) => {

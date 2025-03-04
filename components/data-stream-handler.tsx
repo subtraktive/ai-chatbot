@@ -25,7 +25,7 @@ export function DataStreamHandler({ id }: { id: string }) {
   const { data: dataStream } = useChat({ id });
   const { artifact, setArtifact, setMetadata } = useArtifact();
   const lastProcessedIndex = useRef(-1);
-
+  
   useEffect(() => {
     if (!dataStream?.length) return;
 
@@ -46,6 +46,7 @@ export function DataStreamHandler({ id }: { id: string }) {
       }
 
       setArtifact((draftArtifact) => {
+        console.log("STREAMING --------------", dataStream)
         if (!draftArtifact) {
           return { ...initialArtifactData, status: 'streaming' };
         }

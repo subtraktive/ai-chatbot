@@ -120,22 +120,38 @@ export async function POST(request: Request) {
       //   },
       // });
       console.log("CALLING GENERATE IMAGE ==================",  selectedChatModel)
-      const { image } = await generateImage({
+      const imageData = await generateImage({
         model: myProvider.imageModel(selectedChatModel),
         prompt: 'A futuristic cityscape at sunset',
-        size: '1024x1024',
+        size: '256x256',
       });
 
-      console.log("GOT IMAGE ============", image)
+      console.log("GOT IMAGE ============", imageData)
 
       // Send the image as a message through the data stream
       dataStream.writeData({
         data: {
-          image: { url: `data:image/png;base64,${image.base64}` },
+          image: { url: `data:image/png;base64,${imageData.image.base64}` },
           reasoning: "",
           toolInvocations: []
         }
       });
+
+      try {
+        messages.push({
+          id:id,
+          role: "assistant",
+          content: `data:image/png;base64,${imageData.image.base64}` ,
+          createdAt: new Date()
+        })
+
+        await saveMessages({
+          messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
+        });
+
+      } catch (error) {
+        console.error('Failed to save chat');
+      }
 
       // // End the stream
       // dataStream.done();

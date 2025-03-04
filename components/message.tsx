@@ -48,7 +48,9 @@ const PurePreviewMessage = ({
   isReadonly: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-
+  console.log("INDI+ MESSAGE", message)
+  let isImage = message.content.includes("data:image/png;")
+  let imageURI = message.content;
   return (
     <AnimatePresence>
       <motion.div
@@ -118,7 +120,7 @@ const PurePreviewMessage = ({
                       message.role === 'user',
                   })}
                 >
-                  <Markdown>{message.content as string}</Markdown>
+                 {isImage ? <img src={message.content} alt="Image" /> : <Markdown>{message.content as string}</Markdown> }
                 </div>
               </div>
             )}

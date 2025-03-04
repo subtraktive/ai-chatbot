@@ -41,6 +41,7 @@ export function Chat({
     isLoading,
     stop,
     reload,
+    data: chatData
   } = useChat({
     id,
     body: { id, selectedChatModel: selectedChatModel },
@@ -63,7 +64,7 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
-  console.log("MESSAGES ==================", messages)
+  console.log("CHAT DAA=", chatData, " and messages" , messages)
   return (
     <>
       <div className="flex flex-col min-w-0 h-dvh bg-background">

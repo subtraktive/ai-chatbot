@@ -145,7 +145,7 @@ const PurePreviewMessage = ({
 
                   if (state === 'result') {
                     const { result } = toolInvocation;
-
+                    console.log("MESSAGE HERE", result);
                     return (
                       <div key={toolCallId}>
                         {toolName === 'getWeather' ? (
@@ -167,8 +167,19 @@ const PurePreviewMessage = ({
                             result={result}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName == "generateImage" ? (
-                          <div>
+                        ) : toolName == "generateImageModel1" ? (
+                          result.length ? result.map((data: any) => (<div>
+                            <Image
+                                key={toolInvocation.toolCallId}
+                                src={`data:image/png;base64,${data.image}`}
+                                alt={data.prompt}
+                                height={1024}
+                                width={1024}
+                              />
+                              <div>Loaded this image in <b>{data.time}s</b> using the model <b>{data.model}</b></div>
+                            </div>)) : <div>There was error while generating image</div>
+                        ) : toolName == "generateImageModel2" ? (
+                          !toolInvocation.result.error ? (<div>
                             <Image
                                 key={toolInvocation.toolCallId}
                                 src={`data:image/png;base64,${toolInvocation.result.image}`}
@@ -176,8 +187,8 @@ const PurePreviewMessage = ({
                                 height={256}
                                 width={256}
                               />
-                              <div>Loaded this image in ${toolInvocation.result.time}</div>
-                            </div>
+                              <div>Loaded this image in <b>{toolInvocation.result.time}s</b> using the model <b>{toolInvocation.result.model}</b></div>
+                            </div>) : <div>There was error while generating image</div>
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}

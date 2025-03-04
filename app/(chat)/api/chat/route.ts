@@ -88,7 +88,8 @@ export async function POST(request: Request) {
                 'createDocument',
                 'updateDocument',
                 'requestSuggestions',
-                'generateImage'
+                'generateImageModel1',
+                // 'generateImageModel2'
               ],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
@@ -100,25 +101,93 @@ export async function POST(request: Request) {
             session,
             dataStream,
           }),
-          generateImage: tool({
+          generateImageModel1: tool({
             description: 'Generate an image',
             parameters: z.object({
               prompt: z.string().describe('The prompt to generate the image from'),
             }),
             execute: async ({ prompt }) => {
-              console.log("IMAGE EXECUTE ==============")
+              
               let startTime = performance.now();
-              const { image } = await experimental_generateImage({
+
+              let smalModelEndStamp;
+              let largeModelEndStamp;
+              console.log("CALLING MODEL 1")
+              const smallModelImg = experimental_generateImage({
                 model: myProvider.imageModel('small-model'),
                 prompt,
-                size: '256x256',
+                size: '1024x1024',
+              }).then((data) => {
+                let {image} = data;
+                smalModelEndStamp = `${((performance.now() - startTime)/1000).toFixed(1)}s`;
+                console.log("FINISHED 1")
+                return { image: image.base64, prompt, time: smalModelEndStamp, model: 'small-model' };
               });
-              const endTime = performance.now();
-              let timeToGenerate = endTime - startTime
-              // in production, save this image to blob storage and return a URL
-              return { image: image.base64, prompt, time: timeToGenerate, model: 'small-model' };
+              
+              console.log("CALLING MODEL 1")
+              const largeModelImg = experimental_generateImage({
+                model: myProvider.imageModel('large-model'),
+                prompt,
+                size: '1024x1024',
+              }).then(({image}) => {
+                largeModelEndStamp = `${((performance.now() - startTime)/1000).toFixed(1)}s`;
+                console.log("FINISHED 2")
+                return { image: image.base64, prompt, time: largeModelEndStamp, model: 'large-model' };
+              });
+              
+              try {
+               let result = await Promise.all([smallModelImg, largeModelImg]).then((final) => final)
+               console.log("FINAL RESULT_+_________", result)
+               return result
+              } catch(e) {
+                return []
+              }
+
+
+              try {
+                const { image } = await experimental_generateImage({
+                  model: myProvider.imageModel('small-model'),
+                  prompt,
+                  size: '1024x1024',
+                });
+                const endTime = performance.now();
+                let timeToGenerate = ((endTime - startTime)/1000).toFixed(1)
+                console.log("DONE CALLING MODEL 1*********************")
+                //in production, save this image to blob storage and return a URL
+                return { image: image.base64, prompt, time: timeToGenerate, model: 'small-model' };
+              } catch (e) {
+                console.log("WHAT IS THE ERROR in model 1 ", e)
+                return { image: '', prompt, time: 0, model: 'small-model', error: e };
+              }
+
+
             },
           }),
+          generateImageModel2: tool({
+            description: 'Generate an image with second model',
+            parameters: z.object({
+              prompt: z.string().describe('The prompt to generate the image from'),
+            }),
+            execute: async ({ prompt }) => {
+              console.log("CALLING MODEL 2")
+              let startTime = performance.now();
+              try {
+                const { image } = await experimental_generateImage({
+                  model: myProvider.imageModel('large-model'),
+                  prompt,
+                  size: '1024x1024',
+                });
+                const endTime = performance.now();
+                let timeToGenerate = ((endTime - startTime)/1000).toFixed(1)
+                //in production, save this image to blob storage and return a URL
+                console.log("DONE CALLING MODEL 2*********************")
+                return { image: image.base64, prompt, time: timeToGenerate, model: 'large-model' };
+              } catch(e) {
+                console.log("WHAT IS THE ERROR in model 2 ", e)
+                return { image: '', prompt, time: 0, model: 'small-model', error: e };
+              }
+            },
+          })
         },
         onFinish: async ({ response, reasoning }) => {
           if (session.user?.id) {

@@ -45,6 +45,7 @@ export function MessageReasoning({
           <div className="font-medium">Reasoned for a few seconds</div>
           <div
             className="cursor-pointer"
+            role="button"
             onClick={() => {
               setIsExpanded(!isExpanded);
             }}

@@ -35,7 +35,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get('chat-model');
-
   if (!chatModelFromCookie) {
     return (
       <>

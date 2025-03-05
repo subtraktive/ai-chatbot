@@ -3,7 +3,11 @@ import {
   createDataStreamResponse,
   smoothStream,
   streamText,
+  tool,
+  experimental_generateImage,
 } from 'ai';
+import { z } from 'zod';
+import { put } from '@vercel/blob';
 
 import { auth } from '@/app/(auth)/auth';
 import { myProvider } from '@/lib/ai/models';
@@ -59,13 +63,24 @@ export async function POST(request: Request) {
     messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
   });
 
+  const formattedMessages = messages.map((m) => {
+    if (m.role === 'assistant' && m.toolInvocations) {
+      m.toolInvocations.forEach((ti) => {
+        if (ti.toolName === 'generateImage' && ti.state === 'result') {
+          ti.result.image = `redacted-for-length`;
+        }
+      });
+    }
+    return m;
+  });
+
   return createDataStreamResponse({
     execute: (dataStream) => {
       const result = streamText({
         model: myProvider.languageModel(selectedChatModel),
         system: systemPrompt({ selectedChatModel }),
-        messages,
-        maxSteps: 5,
+        messages: formattedMessages,
+        maxSteps: 2,
         experimental_activeTools:
           selectedChatModel === 'chat-model-reasoning'
             ? []
@@ -74,6 +89,7 @@ export async function POST(request: Request) {
                 'createDocument',
                 'updateDocument',
                 'requestSuggestions',
+                'generateImageModel',
               ],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
@@ -85,8 +101,103 @@ export async function POST(request: Request) {
             session,
             dataStream,
           }),
+          generateImageModel: tool({
+            description: 'Generate an image',
+            parameters: z.object({
+              prompt: z
+                .string()
+                .describe('The prompt to generate the image from'),
+            }),
+            execute: async ({ prompt }) => {
+              const startTime = performance.now();
+
+              let smalModelEndStamp: string;
+              let largeModelEndStamp: string;
+              console.log('CALLING MODEL 1');
+              const smallModelImg = experimental_generateImage({
+                model: myProvider.imageModel('small-model'),
+                prompt,
+                size: '1024x1024',
+              })
+                .then(async (data) => {
+                  const { image } = data;
+
+                  const base64Data = image.base64.replace(
+                    /^data:image\/\w+;base64,/,
+                    '',
+                  ); // Remove metadata
+                  const buffer = Buffer.from(base64Data, 'base64'); // Convert to binary
+                  smalModelEndStamp = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+                  const uploadStartTime = performance.now();
+                  const blob = await put(`${generateUUID()}.png`, buffer, {
+                    access: 'public', // Ensures a public URL
+                    contentType: 'image/png', // Change based on your image type
+                  });
+                  const uploadEndStamp = `${((performance.now() - uploadStartTime) / 1000).toFixed(1)}s`;
+                  console.log('FINISHED 1');
+                  return {
+                    image: blob,
+                    prompt,
+                    time: smalModelEndStamp,
+                    model: 'small-model',
+                    uploadTime: uploadEndStamp,
+                  };
+                })
+                .catch((error) => {
+                  console.error('First image generation failed', error);
+                  return { error };
+                });
+
+              console.log('CALLING MODEL 2');
+              const largeModelImg = experimental_generateImage({
+                model: myProvider.imageModel('large-model'),
+                prompt,
+                size: '1024x1024',
+              })
+                .then(async ({ image }) => {
+                  const base64Data = image.base64.replace(
+                    /^data:image\/\w+;base64,/,
+                    '',
+                  ); // Remove metadata
+                  const buffer = Buffer.from(base64Data, 'base64'); // Convert to binary
+
+                  largeModelEndStamp = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+
+                  const uploadStartTime = performance.now();
+                  const blob = await put(`${generateUUID()}.png`, buffer, {
+                    access: 'public', // Ensures a public URL
+                    contentType: 'image/png', // Change based on your image type
+                  });
+                  const uploadEndStamp = `${((performance.now() - uploadStartTime) / 1000).toFixed(1)}s`;
+                  console.log('FINISHED 2');
+                  return {
+                    image: blob,
+                    prompt,
+                    time: largeModelEndStamp,
+                    model: 'large-model',
+                    uploadTime: uploadEndStamp,
+                  };
+                })
+                .catch((error) => {
+                  console.error('First image generation failed', error);
+                  return { error };
+                });
+
+              try {
+                const result = await Promise.all([
+                  smallModelImg,
+                  largeModelImg,
+                ]).then((final) => final);
+                console.log('FINAL RESULT_+_________', result);
+                return result;
+              } catch (e) {
+                return [];
+              }
+            },
+          }),
         },
         onFinish: async ({ response, reasoning }) => {
+          console.log('ALL DONE HERE ______________________________', response);
           if (session.user?.id) {
             try {
               const sanitizedResponseMessages = sanitizeResponseMessages({
@@ -120,7 +231,8 @@ export async function POST(request: Request) {
         sendReasoning: true,
       });
     },
-    onError: () => {
+    onError: (e) => {
+      console.error('WHAT ERROR IS HAPPENING', e);
       return 'Oops, an error occured!';
     },
   });

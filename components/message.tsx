@@ -49,7 +49,6 @@ const PurePreviewMessage = ({
   isReadonly: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-
   return (
     <AnimatePresence>
       <motion.div
@@ -145,7 +144,6 @@ const PurePreviewMessage = ({
 
                   if (state === 'result') {
                     const { result } = toolInvocation;
-                    console.log("MESSAGE HERE", result);
                     return (
                       <div key={toolCallId}>
                         {toolName === 'getWeather' ? (
@@ -167,28 +165,17 @@ const PurePreviewMessage = ({
                             result={result}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName == "generateImageModel1" ? (
-                          result.length ? result.map((data: any) => (<div>
+                        ) : toolName == "generateImageModel" ? (
+                          result.length ? result.map((data: any, index: number) => (<div key={`image-${index}`} className={'flex'}>
                             <Image
                                 key={toolInvocation.toolCallId}
-                                src={`data:image/png;base64,${data.image}`}
+                                src={data.image.url}
                                 alt={data.prompt}
                                 height={1024}
                                 width={1024}
                               />
-                              <div>Loaded this image in <b>{data.time}s</b> using the model <b>{data.model}</b></div>
+                              <div>Generated this image in <b>{data.time}</b> using the model <b>{data.model} and uploaded the file in {data.uploadTime}</b></div>
                             </div>)) : <div>There was error while generating image</div>
-                        ) : toolName == "generateImageModel2" ? (
-                          !toolInvocation.result.error ? (<div>
-                            <Image
-                                key={toolInvocation.toolCallId}
-                                src={`data:image/png;base64,${toolInvocation.result.image}`}
-                                alt={toolInvocation.result.prompt}
-                                height={256}
-                                width={256}
-                              />
-                              <div>Loaded this image in <b>{toolInvocation.result.time}s</b> using the model <b>{toolInvocation.result.model}</b></div>
-                            </div>) : <div>There was error while generating image</div>
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
@@ -218,7 +205,7 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
-                      ) : toolName == "generateImage" ? (
+                      ) : toolName == "generateImageModel" ? (
                         <div key={toolInvocation.toolCallId} className="animate-pulse">
                         "Generating image..."
                       </div>) : null}

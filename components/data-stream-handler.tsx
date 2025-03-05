@@ -46,7 +46,6 @@ export function DataStreamHandler({ id }: { id: string }) {
       }
 
       setArtifact((draftArtifact) => {
-        console.log("STREAMING --------------", dataStream)
         if (!draftArtifact) {
           return { ...initialArtifactData, status: 'streaming' };
         }

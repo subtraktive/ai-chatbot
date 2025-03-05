@@ -3,18 +3,14 @@
 import type { ChatRequestOptions, Message } from 'ai';
 import cx from 'classnames';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useMemo, useState } from 'react';
+import { memo, useState } from 'react';
 import Image from 'next/image';
 
 import type { Vote } from '@/lib/db/schema';
+import { generateUUID } from '@/lib/utils';
 
 import { DocumentToolCall, DocumentToolResult } from './document';
-import {
-  ChevronDownIcon,
-  LoaderIcon,
-  PencilEditIcon,
-  SparklesIcon,
-} from './icons';
+import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
@@ -165,17 +161,30 @@ const PurePreviewMessage = ({
                             result={result}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName == "generateImageModel" ? (
-                          result.length ? result.map((data: any, index: number) => (<div key={`image-${index}`} className={'flex'}>
-                            <Image
-                                key={toolInvocation.toolCallId}
-                                src={data.image.url}
-                                alt={data.prompt}
-                                height={1024}
-                                width={1024}
-                              />
-                              <div>Generated this image in <b>{data.time}</b> using the model <b>{data.model} and uploaded the file in {data.uploadTime}</b></div>
-                            </div>)) : <div>There was error while generating image</div>
+                        ) : toolName === 'generateImageModel' ? (
+                          result.length ? (
+                            result.map((data: any, index: number) => (
+                              <div key={generateUUID()} className={'flex'}>
+                                <Image
+                                  key={toolInvocation.toolCallId}
+                                  src={data.image.url}
+                                  alt={data.prompt}
+                                  height={1024}
+                                  width={1024}
+                                />
+                                <div>
+                                  Generated this image in <b>{data.time}</b>{' '}
+                                  using the model{' '}
+                                  <b>
+                                    {data.model} and uploaded the file in{' '}
+                                    {data.uploadTime}
+                                  </b>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div>There was error while generating image</div>
+                          )
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
@@ -205,10 +214,14 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
-                      ) : toolName == "generateImageModel" ? (
-                        <div key={toolInvocation.toolCallId} className="animate-pulse">
-                        "Generating image..."
-                      </div>) : null}
+                      ) : toolName === 'generateImageModel' ? (
+                        <div
+                          key={toolInvocation.toolCallId}
+                          className="animate-pulse"
+                        >
+                          Generating image...
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

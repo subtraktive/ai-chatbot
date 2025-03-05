@@ -4,7 +4,7 @@ import {
   smoothStream,
   streamText,
   tool,
-  experimental_generateImage
+  experimental_generateImage,
 } from 'ai';
 import { z } from 'zod';
 import { put } from '@vercel/blob';
@@ -63,9 +63,9 @@ export async function POST(request: Request) {
     messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
   });
 
-  const formattedMessages = messages.map(m => {
+  const formattedMessages = messages.map((m) => {
     if (m.role === 'assistant' && m.toolInvocations) {
-      m.toolInvocations.forEach(ti => {
+      m.toolInvocations.forEach((ti) => {
         if (ti.toolName === 'generateImage' && ti.state === 'result') {
           ti.result.image = `redacted-for-length`;
         }
@@ -104,74 +104,100 @@ export async function POST(request: Request) {
           generateImageModel: tool({
             description: 'Generate an image',
             parameters: z.object({
-              prompt: z.string().describe('The prompt to generate the image from'),
+              prompt: z
+                .string()
+                .describe('The prompt to generate the image from'),
             }),
             execute: async ({ prompt }) => {
-              
-              let startTime = performance.now();
+              const startTime = performance.now();
 
-              let smalModelEndStamp;
-              let largeModelEndStamp;
-              console.log("CALLING MODEL 1")
+              let smalModelEndStamp: string;
+              let largeModelEndStamp: string;
+              console.log('CALLING MODEL 1');
               const smallModelImg = experimental_generateImage({
                 model: myProvider.imageModel('small-model'),
                 prompt,
                 size: '1024x1024',
-              }).then(async (data) => {
-                let {image} = data;
+              })
+                .then(async (data) => {
+                  const { image } = data;
 
-                const base64Data = image.base64.replace(/^data:image\/\w+;base64,/, ""); // Remove metadata
-                const buffer = Buffer.from(base64Data, "base64"); // Convert to binary
-                smalModelEndStamp = `${((performance.now() - startTime)/1000).toFixed(1)}s`;
-                let uploadStartTime = performance.now();
-                const blob = await put(`${generateUUID()}.png`, buffer, {
-                  access: "public", // Ensures a public URL
-                  contentType: "image/png", // Change based on your image type
+                  const base64Data = image.base64.replace(
+                    /^data:image\/\w+;base64,/,
+                    '',
+                  ); // Remove metadata
+                  const buffer = Buffer.from(base64Data, 'base64'); // Convert to binary
+                  smalModelEndStamp = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+                  const uploadStartTime = performance.now();
+                  const blob = await put(`${generateUUID()}.png`, buffer, {
+                    access: 'public', // Ensures a public URL
+                    contentType: 'image/png', // Change based on your image type
+                  });
+                  const uploadEndStamp = `${((performance.now() - uploadStartTime) / 1000).toFixed(1)}s`;
+                  console.log('FINISHED 1');
+                  return {
+                    image: blob,
+                    prompt,
+                    time: smalModelEndStamp,
+                    model: 'small-model',
+                    uploadTime: uploadEndStamp,
+                  };
+                })
+                .catch((error) => {
+                  console.error('First image generation failed', error);
+                  return { error };
                 });
-                let uploadEndStamp = `${((performance.now() - uploadStartTime)/1000).toFixed(1)}s`;
-                console.log("FINISHED 1")
-                return { image: blob, prompt, time: smalModelEndStamp, model: 'small-model', uploadTime: uploadEndStamp };
-              }).catch((error) => {
-                console.error("First image generation failed", error)
-                return {error}
-              });
-              
-              console.log("CALLING MODEL 2")
+
+              console.log('CALLING MODEL 2');
               const largeModelImg = experimental_generateImage({
                 model: myProvider.imageModel('large-model'),
                 prompt,
                 size: '1024x1024',
-              }).then(async ({image}) => {
-                const base64Data = image.base64.replace(/^data:image\/\w+;base64,/, ""); // Remove metadata
-                const buffer = Buffer.from(base64Data, "base64"); // Convert to binary
+              })
+                .then(async ({ image }) => {
+                  const base64Data = image.base64.replace(
+                    /^data:image\/\w+;base64,/,
+                    '',
+                  ); // Remove metadata
+                  const buffer = Buffer.from(base64Data, 'base64'); // Convert to binary
 
-                largeModelEndStamp = `${((performance.now() - startTime)/1000).toFixed(1)}s`;
-                
-                let uploadStartTime = performance.now();
-                const blob = await put(`${generateUUID()}.png`, buffer, {
-                  access: "public", // Ensures a public URL
-                  contentType: "image/png", // Change based on your image type
+                  largeModelEndStamp = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+
+                  const uploadStartTime = performance.now();
+                  const blob = await put(`${generateUUID()}.png`, buffer, {
+                    access: 'public', // Ensures a public URL
+                    contentType: 'image/png', // Change based on your image type
+                  });
+                  const uploadEndStamp = `${((performance.now() - uploadStartTime) / 1000).toFixed(1)}s`;
+                  console.log('FINISHED 2');
+                  return {
+                    image: blob,
+                    prompt,
+                    time: largeModelEndStamp,
+                    model: 'large-model',
+                    uploadTime: uploadEndStamp,
+                  };
+                })
+                .catch((error) => {
+                  console.error('First image generation failed', error);
+                  return { error };
                 });
-                let uploadEndStamp = `${((performance.now() - uploadStartTime)/1000).toFixed(1)}s`;
-                console.log("FINISHED 2")
-                return { image: blob, prompt, time: largeModelEndStamp, model: 'large-model', uploadTime: uploadEndStamp };
-              }).catch((error) => {
-                console.error("First image generation failed", error)
-                return {error}
-              });;
-              
+
               try {
-               let result = await Promise.all([smallModelImg, largeModelImg]).then((final) => final)
-               console.log("FINAL RESULT_+_________", result)
-               return result
-              } catch(e) {
-                return []
+                const result = await Promise.all([
+                  smallModelImg,
+                  largeModelImg,
+                ]).then((final) => final);
+                console.log('FINAL RESULT_+_________', result);
+                return result;
+              } catch (e) {
+                return [];
               }
             },
           }),
         },
         onFinish: async ({ response, reasoning }) => {
-          console.log("ALL DONE HERE ______________________________", response)
+          console.log('ALL DONE HERE ______________________________', response);
           if (session.user?.id) {
             try {
               const sanitizedResponseMessages = sanitizeResponseMessages({
@@ -206,7 +232,7 @@ export async function POST(request: Request) {
       });
     },
     onError: (e) => {
-      console.error("WHAT ERROR IS HAPPENING", e)
+      console.error('WHAT ERROR IS HAPPENING', e);
       return 'Oops, an error occured!';
     },
   });

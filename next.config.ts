@@ -8,11 +8,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         hostname: 'avatar.vercel.sh',
-        protocol: "https",
+        protocol: 'https',
       },
       {
-        protocol: "https",
-        hostname: "*.public.blob.vercel-storage.com", // All Vercel Blob subdomains
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com', // All Vercel Blob subdomains
       },
     ],
   },
